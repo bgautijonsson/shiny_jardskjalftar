@@ -5,6 +5,6 @@ account: bggj
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 10531775
-bundleId: 7942382
+bundleId: 8183198
 url: https://bggj.shinyapps.io/shiny_jardskjalftar/
 version: 1

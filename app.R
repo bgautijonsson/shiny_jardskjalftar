@@ -80,7 +80,6 @@ ui <- page_sidebar(
     ),
     p("Tölurnar innan hringanna tákna fjölda jarðskjálfta. Færið músina yfir punktana til að sjá svæðið sem fjöldatalan á við um. Smelltu svo á punktinn til að þysja inn að honum og sjá nánari dreifingu."),
     leafletOutput("p")
-
 )
 
 server <- function(input, output) {
