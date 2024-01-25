@@ -8,6 +8,7 @@ library(leaflet)
 library(jardskjalftar)
 library(metill)
 library(glue)
+library(shinyWidgets)
 
 theme_set(theme_metill())
 
@@ -37,7 +38,8 @@ sidebar_info <- paste0(
     br(" "),
     h5("Höfundur:"),
     p("Brynjólfur Gauti Guðrúnar Jónsson"),
-    HTML("<p>Fleiri greiningar á  <a href='https://metill.is'>Metill.is</a></p>")
+    HTML("<p>Fleiri greiningar á  <a href='https://metill.is'>Metill.is</a></p>"),
+    p("Byggt á gögnum frá Veðurstofu Íslands.")
 )
 
 ui <- page_sidebar(
@@ -48,7 +50,7 @@ ui <- page_sidebar(
         dateRangeInput(
             inputId = "daterange",
             label = "Sýna jarðskjálfta frá tímabilinu",
-            start = "2023-11-01",
+            start = Sys.Date() - months(1),
             end = Sys.Date(),
             min = "2010-01-01",
             max = Sys.Date(),
@@ -64,6 +66,11 @@ ui <- page_sidebar(
             max = 7,
             step = 0.5
         ),
+        materialSwitch(
+            "cluster",
+            "Hópa saman nálægum skjálftum?",
+            status = "primary"
+        ),
         actionButton(
             inputId = "go",
             label = "Sækja gögn"
@@ -77,11 +84,16 @@ ui <- page_sidebar(
 )
 
 server <- function(input, output) {
-    output$p <- renderLeaflet({
+
+    plot_data <- reactive({
         start_date <- input$daterange[1] + seconds(1)
         end_date <- input$daterange[2] + days(1) - seconds(1)
-        d <- download_skjalftalisa_data(start_date, end_date) |>
-            filter(magnitude >= input$min_magnitude) |>
+
+        validate(
+            need(start_date <= end_date, "Vinstri dagsetningin má ekki vera nýrri en hægri dagsetningin")
+        )
+
+        download_skjalftalisa_data(start_date, end_date) |>
             mutate(
                 label = glue(
                     paste0(
@@ -89,7 +101,17 @@ server <- function(input, output) {
                         "Stærð: {magnitude}"
                     )
                 )
-            )
+            ) |>
+            arrange(magnitude)
+    }) |>
+        bindEvent(
+            input$go,
+            ignoreNULL = FALSE
+        )
+
+    output$p <- renderLeaflet({
+        d <- plot_data() |>
+            filter(magnitude >= input$min_magnitude)
 
         validate(
             need(nrow(d) >= 1, "Enginn jarðskjálfti fannst með völdum leitarskilyrðum")
@@ -101,11 +123,17 @@ server <- function(input, output) {
             reverse = FALSE
         )
 
+        if (input$cluster == TRUE) {
+            clust_opt <- markerClusterOptions()
+        } else {
+            clust_opt <- NULL
+        }
+
         d |>
             leaflet() |>
             addProviderTiles(providers$OpenStreetMap.HOT) |>
             addCircleMarkers(
-                clusterOptions = markerClusterOptions(),
+                clusterOptions = clust_opt,
                 fillColor = ~ pal(magnitude),
                 color = "black",
                 weight = 1,
@@ -113,11 +141,7 @@ server <- function(input, output) {
                 radius = ~ 1 + 2 * (magnitude),
                 label = ~ lapply(label, HTML)
             )
-    }) |>
-        bindEvent(
-            input$go,
-            ignoreNULL = FALSE
-        )
+    })
 }
 
 shinyApp(ui, server)
